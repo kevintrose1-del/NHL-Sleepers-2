@@ -1,0 +1,36 @@
+name: Update stats
+
+on:
+  schedule:
+    # 10:15 UTC = 6:15 AM Eastern (5:15 AM in winter), after every game has finished
+    - cron: "15 10 * * *"
+  workflow_dispatch: # adds a "Run workflow" button so you can update on demand
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-stats
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Pull the latest NHL stats
+        run: python scripts/fetch_stats.py
+
+      - name: Save the new data to the site
+        run: |
+          git config user.name "stats-bot"
+          git config user.email "stats-bot@users.noreply.github.com"
+          git add -A data
+          git diff --cached --quiet || git commit -m "Daily stats update $(date -u +%F)"
+          git push

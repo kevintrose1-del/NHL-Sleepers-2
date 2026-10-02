@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Under the Radar: NHL fantasy sleepers</title>
+  <meta name="description" content="NHL skaters producing more than their reputation, updated every morning.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏒</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;700;800&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="masthead">
+    <div class="wrap masthead-inner">
+      <div>
+        <h1>Under the Radar</h1>
+        <p class="lede">NHL skaters producing more than their reputation. Fresh numbers every morning.</p>
+      </div>
+      <p class="updated" id="updated">Loading stats…</p>
+    </div>
+    <div class="rink-lines" aria-hidden="true"><span class="blue"></span><span class="red"></span><span class="blue"></span></div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero" aria-labelledby="hero-title">
+      <h2 id="hero-title">Biggest risers you probably haven't drafted</h2>
+      <ol id="hero" class="hero-list"></ol>
+    </section>
+
+    <section class="controls" aria-label="Filters">
+      <label class="field grow">
+        <span>Search</span>
+        <input id="q" type="search" placeholder="Player or team" autocomplete="off">
+      </label>
+      <label class="field">
+        <span>Position</span>
+        <select id="pos">
+          <option value="all">All skaters</option>
+          <option value="F">Forwards</option>
+          <option value="C">Centers</option>
+          <option value="L">Left wings</option>
+          <option value="R">Right wings</option>
+          <option value="D">Defense</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Team</span>
+        <select id="team"><option value="all">All teams</option></select>
+      </label>
+      <label class="field narrow">
+        <span>Min games</span>
+        <input id="minGp" type="number" min="0" max="82" value="5">
+      </label>
+      <label class="field slider">
+        <span>Hide last season's top <output id="hideTopOut">120</output> scorers</span>
+        <input id="hideTop" type="range" min="0" max="300" step="10" value="120">
+      </label>
+      <label class="check">
+        <input id="watchOnly" type="checkbox"> My watchlist only
+      </label>
+    </section>
+
+    <details class="scoring" id="scoring">
+      <summary>Scoring settings <span class="hint">Match these to your league so fantasy points line up</span></summary>
+      <div class="weights" id="weights"></div>
+      <button type="button" class="btn-quiet" id="resetWeights">Reset to defaults</button>
+    </details>
+
+    <div class="table-wrap">
+      <table id="table">
+        <thead>
+          <tr>
+            <th scope="col" class="star-col"><span class="sr">Watchlist</span></th>
+            <th scope="col" data-sort="name" class="left">Player</th>
+            <th scope="col" data-sort="pos">Pos</th>
+            <th scope="col" data-sort="team">Team</th>
+            <th scope="col" data-sort="gp">GP</th>
+            <th scope="col" data-sort="g">G</th>
+            <th scope="col" data-sort="a">A</th>
+            <th scope="col" data-sort="pts">P</th>
+            <th scope="col" data-sort="ppp" title="Power-play points">PPP</th>
+            <th scope="col" data-sort="sog" title="Shots on goal">SOG</th>
+            <th scope="col" data-sort="hit">HIT</th>
+            <th scope="col" data-sort="blk">BLK</th>
+            <th scope="col" data-sort="toi" title="Average time on ice">TOI</th>
+            <th scope="col" data-sort="fpg" title="Fantasy points per game, season">FP/G</th>
+            <th scope="col" data-sort="l10fpg" title="Fantasy points per game, last 10 games">Last 10</th>
+            <th scope="col" data-sort="toiDelta" title="Ice time last 10 games vs season average">Ice time Δ</th>
+            <th scope="col" data-sort="score" title="How strongly the signals point up, 0–100">Sleeper score</th>
+            <th scope="col" class="left">Signals</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <p class="count" id="count"></p>
+    <button type="button" class="btn" id="more">Show 50 more</button>
+
+    <section class="how" aria-labelledby="how-title">
+      <h2 id="how-title">How the sleeper score works</h2>
+      <p>Every skater is compared against the rest of the league on six things, then ranked from 0 to 100. A high score means several signs point the same way at once.</p>
+      <dl>
+        <div><dt><span class="sig hot">Heating up</span></dt><dd>Fantasy points per game over the last 10 games are well above his season average.</dd></div>
+        <div><dt><span class="sig ice">More ice time</span></dt><dd>His coach is playing him at least 90 seconds more per night lately. Opportunity usually comes before points.</dd></div>
+        <div><dt><span class="sig pp">Power play</span></dt><dd>Three or more power-play points in his last 10 games, a sign he's on a scoring unit.</dd></div>
+        <div><dt><span class="sig shots">Shooting more</span></dt><dd>His shots per game are up sharply. Shot volume is the most stable predictor of future goals.</dd></div>
+        <div><dt><span class="sig due">Due for goals</span></dt><dd>He's shooting well below his career percentage. Bad puck luck tends to even out.</dd></div>
+      </dl>
+      <p class="fine">Hits and blocks aren't published game by game, so last-10 numbers use his season rate for those two stats. Fantasy roster percentages aren't public, so "hide last season's top scorers" stands in for the players everyone already drafted. Stats come from the NHL's public stats feed.</p>
+    </section>
+  </main>
+
+  <div class="empty" id="empty" hidden>
+    <h2>No stats yet</h2>
+    <p>The first update hasn't run. In your GitHub repository, open the Actions tab, choose "Update stats", and select "Run workflow". The site fills in about five minutes later.</p>
+  </div>
+
+  <div class="scrim" id="scrim" hidden></div>
+  <aside class="drawer" id="drawer" aria-labelledby="d-name" role="dialog" aria-modal="true" hidden>
+    <button type="button" class="close" id="closeDrawer" aria-label="Close player details">×</button>
+    <div id="drawerBody"></div>
+  </aside>
+
+  <script src="app.js"></script>
+</body>
+</html>
