@@ -196,3 +196,18 @@ tr.minor:hover { background: none; }
   .hero-score { text-align: left; display: flex; align-items: baseline; gap: .5rem; }
   .how dl div { grid-template-columns: 1fr; gap: .25rem; }
 }
+
+/* Tabs and goalie additions */
+.tabs { display: inline-flex; gap: .25rem; margin-top: 1.75rem; background: var(--surface); padding: .25rem; border-radius: 6px; }
+.tabs button {
+  font: 700 1.15rem var(--display); color: var(--muted); background: transparent; border: 0;
+  padding: .45rem 1.25rem; border-radius: 4px; cursor: pointer; min-height: 2.5rem;
+}
+.tabs button[aria-selected="true"] { background: var(--navy); color: var(--surface); }
+.hero { padding-top: 1.25rem; }
+.weights-title, .how-sub { font: 700 1.1rem var(--display); margin: 1rem 0 0; }
+.notice { background: var(--surface); padding: 1.25rem; border-radius: 6px; color: var(--muted); }
+[hidden] { display: none !important; }
+.weights .field { min-width: 0; }
+.weights input { min-width: 0; max-width: 9rem; }
+input, select, button { box-sizing: border-box; }
