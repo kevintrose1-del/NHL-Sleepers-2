@@ -1,7 +1,8 @@
 {
-  "updatedAt": "2026-10-04T02:16+00:00",
+  "updatedAt": "2026-10-04T16:56+00:00",
   "season": 20262027,
   "priorSeason": 20252026,
   "seasonStarted": true,
-  "playerCount": 697
+  "playerCount": 698,
+  "goalieCount": 70
 }
