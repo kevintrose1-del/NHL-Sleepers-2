@@ -4,7 +4,8 @@ Pulls NHL skater stats from the NHL's public web API and writes the JSON
 files the website reads:
 
   data/meta.json            when the data was updated, which season it covers
-  data/players.json         one summary row per skater (used by the main table)
+  data/players.json         one summary row per skater
+  data/goalies.json         one summary row per goalie
   data/players/<id>.json    full career by season + this season's game log
 
 Uses only the Python standard library, so there is nothing to install.
@@ -110,7 +111,7 @@ def roster_ids():
         data = get(f"{WEB}/roster/{team}/current")
         if not data:
             continue
-        for group in ("forwards", "defensemen"):
+        for group in ("forwards", "defensemen", "goalies"):
             for p in data.get(group, []) or []:
                 if p.get("id"):
                     ids.add(p["id"])
@@ -136,8 +137,10 @@ def age_on(birth, today):
 
 def build_player(pid, active, prior, rt, today):
     land = get(f"{WEB}/player/{pid}/landing")
-    if not land or land.get("position") == "G":
+    if not land:
         return None
+    if land.get("position") == "G":
+        return build_goalie(pid, land, active, prior, today)
 
     log = (get(f"{WEB}/player/{pid}/game-log/{active}/2") or {}).get("gameLog", []) or []
     games = []
@@ -210,6 +213,86 @@ def build_player(pid, active, prior, rt, today):
     }
 
 
+def build_goalie(pid, land, active, prior, today):
+    log = (get(f"{WEB}/player/{pid}/game-log/{active}/2") or {}).get("gameLog", []) or []
+    games = []
+    for g in log:
+        games.append({
+            "date": g.get("gameDate"),
+            "opp": g.get("opponentAbbrev"),
+            "home": g.get("homeRoadFlag") == "H",
+            "gs": 1 if num(g.get("gamesStarted")) else 0,
+            "dec": g.get("decision") or "",
+            "sa": num(g.get("shotsAgainst")),
+            "ga": num(g.get("goalsAgainst")),
+            "so": num(g.get("shutouts")),
+            "toi": toi_seconds(g.get("toi")),
+        })
+    games.sort(key=lambda x: x["date"] or "")
+
+    def gtotal(gs):
+        return {
+            "gp": len(gs),
+            "gs": sum(x["gs"] for x in gs),
+            "w": sum(1 for x in gs if x["dec"] == "W"),
+            "l": sum(1 for x in gs if x["dec"] == "L"),
+            "otl": sum(1 for x in gs if x["dec"] == "O"),
+            "sa": sum(x["sa"] for x in gs),
+            "ga": sum(x["ga"] for x in gs),
+            "so": sum(x["so"] for x in gs),
+            "toi": sum(x["toi"] for x in gs),
+        }
+
+    career_rows = []
+    for s in land.get("seasonTotals", []) or []:
+        if s.get("gameTypeId") != 2:
+            continue
+        career_rows.append({
+            "season": s.get("season"),
+            "league": s.get("leagueAbbrev"),
+            "team": (s.get("teamName") or {}).get("default"),
+            "gp": num(s.get("gamesPlayed")),
+            "gs": num(s.get("gamesStarted")),
+            "w": num(s.get("wins")),
+            "l": num(s.get("losses")),
+            "otl": num(s.get("otLosses")),
+            "sa": num(s.get("shotsAgainst")),
+            "ga": num(s.get("goalsAgainst")),
+            "svp": s.get("savePctg"),
+            "gaa": s.get("goalsAgainstAvg"),
+            "so": num(s.get("shutouts")),
+        })
+    nhl = [r for r in career_rows if r["league"] == "NHL"]
+    history = [r for r in nhl if r["season"] != active]
+    career = {k: sum(r[k] for r in history) for k in ("gp", "w", "sa", "ga")}
+    prior_rows = [r for r in nhl if r["season"] == prior]
+    prior_tot = {k: sum(r[k] for r in prior_rows) for k in ("gp", "w")}
+
+    first = (land.get("firstName") or {}).get("default", "")
+    last = (land.get("lastName") or {}).get("default", "")
+    name = f"{first} {last}".strip()
+
+    with open(os.path.join(PLAYER_DIR, f"{pid}.json"), "w") as f:
+        json.dump({"id": pid, "name": name, "kind": "G", "career": career_rows, "games": games}, f, separators=(",", ":"))
+
+    return {
+        "kind": "G",
+        "id": pid,
+        "name": name,
+        "team": land.get("currentTeamAbbrev") or "FA",
+        "pos": "G",
+        "age": age_on(land.get("birthDate"), today),
+        "nhlSeasons": len({r["season"] for r in history}),
+        "season": gtotal(games),
+        "l10": gtotal(games[-10:]),
+        "startDates": [x["date"] for x in games if x["gs"]][-10:],
+        "firstDate": games[0]["date"] if games else None,
+        "lastDate": games[-1]["date"] if games else None,
+        "career": career,
+        "prior": prior_tot,
+    }
+
+
 def main():
     os.makedirs(PLAYER_DIR, exist_ok=True)
     today = datetime.date.today()
@@ -227,25 +310,28 @@ def main():
     ids = roster_ids()
     if active == current:
         ids |= set(rt.keys())  # also catch players who played this season but are off a roster today
-    print(f"Fetching {len(ids)} skaters...")
+    print(f"Fetching {len(ids)} players...")
 
-    players = []
+    players, goalies = [], []
     with ThreadPoolExecutor(max_workers=WORKERS) as pool:
         for result in pool.map(lambda pid: build_player(pid, active, prior, rt, today), sorted(ids)):
-            if result:
-                players.append(result)
+            if not result:
+                continue
+            (goalies if result.get("kind") == "G" else players).append(result)
 
     if len(players) < 100:
         print("Too few players came back; leaving yesterday's data in place.", file=sys.stderr)
         sys.exit(1)
 
-    keep = {f"{p['id']}.json" for p in players} | {".gitkeep"}
+    keep = {f"{p['id']}.json" for p in players + goalies} | {".gitkeep"}
     for name in os.listdir(PLAYER_DIR):
         if name not in keep:
             os.remove(os.path.join(PLAYER_DIR, name))
 
     with open(os.path.join(DATA, "players.json"), "w") as f:
         json.dump(players, f, separators=(",", ":"))
+    with open(os.path.join(DATA, "goalies.json"), "w") as f:
+        json.dump(goalies, f, separators=(",", ":"))
     with open(os.path.join(DATA, "meta.json"), "w") as f:
         json.dump({
             "updatedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="minutes"),
@@ -253,8 +339,9 @@ def main():
             "priorSeason": prior,
             "seasonStarted": active == current,
             "playerCount": len(players),
+            "goalieCount": len(goalies),
         }, f, indent=2)
-    print(f"Done: {len(players)} skaters written.")
+    print(f"Done: {len(players)} skaters and {len(goalies)} goalies written.")
 
 
 if __name__ == "__main__":
